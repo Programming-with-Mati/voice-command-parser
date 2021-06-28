@@ -16,21 +16,27 @@ public class ParsedCommandConsumer {
     public static void main(String[] args) {
         Map<String, Object> props = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:29092",
-                ConsumerConfig.GROUP_ID_CONFIG, "parsed-command-consumer",
+                ConsumerConfig.GROUP_ID_CONFIG, "parsed-command-consumer-1",
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"
                 );
 
-        var commandConsumer = new KafkaConsumer<>(props, Serdes.String().deserializer(), new JsonSerde<>(ParsedVoiceCommand.class).deserializer());
+        try (var commandConsumer = new KafkaConsumer<>(props, Serdes.String().deserializer(), new JsonSerde<>(ParsedVoiceCommand.class).deserializer())) {
+            commandConsumer.subscribe(List.of(VoiceParserTopology.RECOGNIZED_COMMANDS_TOPIC, VoiceParserTopology.UNRECOGNIZED_COMMAND_TOPIC));
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> close(commandConsumer)));
 
-        commandConsumer.subscribe(List.of(VoiceParserTopology.RECOGNIZED_COMMANDS_TOPIC, VoiceParserTopology.UNRECOGNIZED_COMMAND_TOPIC));
+            while (true)  {
+                commandConsumer.poll(Duration.ofSeconds(1))
+                        .forEach(record -> System.out.println("""
+                            Topic: %s
+                            Result: %s
+                            """.formatted(record.topic(), record.value().toString())));
+                commandConsumer.commitAsync();
+            }
+        }
 
-        Runtime.getRuntime().addShutdownHook(new Thread(commandConsumer::close));
+    }
 
-        while(true) commandConsumer.poll(Duration.ofSeconds(1))
-                .forEach(record -> System.out.println("""
-                        Topic: %s
-                        Result: %s
-                        """.formatted(record.topic(), record.value().toString())));
-
+    private static void close(KafkaConsumer<String, ParsedVoiceCommand> commandConsumer) {
+        commandConsumer.wakeup();
     }
 }
