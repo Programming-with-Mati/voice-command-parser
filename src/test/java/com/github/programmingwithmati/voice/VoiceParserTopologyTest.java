@@ -45,7 +45,6 @@ class VoiceParserTopologyTest {
 
     @BeforeEach
     void setup() {
-
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "test");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:1234");
@@ -124,7 +123,6 @@ class VoiceParserTopologyTest {
 
     }
 
-
     @Test
     void testWhenNotRecognized() {
         var bytes = new byte[20];
@@ -153,6 +151,27 @@ class VoiceParserTopologyTest {
         assertTrue(recognizedCommandsOutputTopic.isEmpty());
         assertEquals(id, actualVoiceCommand.getId());
         verify(translateClient, never()).translate(any(ParsedVoiceCommand.class));
+
+    }
+
+    @Test
+    void testWhenAudioTooShortFiltered() {
+        var bytes = new byte[9];
+        new Random().nextBytes(bytes);
+        var id = UUID.randomUUID().toString();
+        var data = VoiceCommand.builder()
+                .id(id)
+                .audio(bytes)
+                .language("en-US")
+                .audioCodec("FLAC")
+                .build();
+
+        voiceCommandsTopic.pipeInput(id, data);
+
+        assertTrue(recognizedCommandsOutputTopic.isEmpty());
+        assertTrue(unrecognizedCommandsOutputTopic.isEmpty());
+        verify(translateClient, never()).translate(any(ParsedVoiceCommand.class));
+        verify(sttClient, never()).speechToText(any(VoiceCommand.class));
 
     }
 

@@ -108,4 +108,21 @@ The `text` field is what we got from the **Speech to Text Service**. The `probab
 6️⃣ **merge**: Merge both streams before sending the data to the topic `recognized-commands`.
 
 ## Unit Testing Our Topology
-To modularize the application, the Topology is created in a separated class. This allows us to test the Topology that we created with Unit tests. Kafka Streams provides a library called `kafka-streams-test-utils`
+To modularize the application, the Topology is created in a separated class. This allows us to test the Topology that we created with Unit tests. Kafka Streams provides a library called `kafka-streams-test-utils`.
+We can see the test in the class [VoiceParserTopologyTest](src/test/java/com/github/programmingwithmati/voice/VoiceParserTopologyTest.java).
+
+The class we use for testing our `Topology` is called `TopologyTestDriver`. This class allows us to test the Topology as if it were connected to Kafka. We can create mock input and output topics and control what comes in and out of the Topology.
+
+So in the `setup` method of the test we initialize the TopologyTestDriver and all the topics we will need.
+In our test we also use **Mockito** to mock the Speech-to-Text Service and the Translate Service.
+
+We are testing the following scenarios:
+
+1. **Given** an English voice command, **When** processed correctly **Then** I receive a ParsedVoiceCommand in the `recognnized-commands` topic.
+2. **Given** a non-English voice command, **When** processed correctly **Then** I receive a ParsedVoiceCommand in the `recognnized-commands` topic.
+3. **Given** a non-recognizable voice command, **When** processed correctly **Then** I receive a ParsedVoiceCommand in the `unrecognnized-commands` topic.
+4. **Given** voice command that is too short (less than 10 bytes), **When** processed correctly **Then** I don't receive any command in any of the output topics.
+
+These unit tests are very useful to test our Topology, but they are not enough to guarantee the proper functioning of the application. We are not testing with a real Kafka Instance.
+Moreover, there are unexpected exceptions that are not being handled, such as serialization/deserialization exceptions. We will dig deeper into these when we touch the subject of **Error Handling** in the future.
+
